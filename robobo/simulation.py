@@ -156,27 +156,30 @@ class SimulationRobobo(Robobo):
         self._vrep_set_joint_target_velocity(self._RightMotor, right, vrep.simx_opmode_oneshot)
         # self.wait_for_ping() #get_sim_time is already waiting for ping
 
-        duration = millis #/ 1000.0
-        # startTime = time.time()
-        # while time.time() - startTime < duration:
-        #     # rightMotorAngPos = vrep.unwrap_vrep(vrep.simxGetJointPosition(self._clientID, self._RightMotor, vrep.simx_opmode_blocking))
-        #     # leftMotorAngPos  = vrep.unwrap_vrep(vrep.simxGetJointPosition(self._clientID, self._LeftMotor, vrep.simx_opmode_blocking))
-        #     # RoboAbsPos       = vrep.unwrap_vrep(vrep.simxGetObjectPosition(self._clientID, self._Robobo, -1, vrep.simx_opmode_blocking))
-        #     time.sleep(0.005)
-        # print("sleeping for {}".format(duration))
+        # Added manually
+        if isinstance(millis, int):
 
-        # busy waiting
-        start_time = self.get_sim_time()
-        while self.get_sim_time() - start_time < duration:
-            pass
-        
-        # Stop to move the wheels motor. Angular velocity.
-        stopRightVelocity = stopLeftVelocity = 0
-        self._vrep_set_joint_target_velocity(self._LeftMotor, stopLeftVelocity,
-                                                  vrep.simx_opmode_oneshot)
-        self._vrep_set_joint_target_velocity(self._RightMotor, stopRightVelocity,
-                                                  vrep.simx_opmode_oneshot)
-        self.wait_for_ping()
+            duration = millis #/ 1000.0
+            # startTime = time.time()
+            # while time.time() - startTime < duration:
+            #     # rightMotorAngPos = vrep.unwrap_vrep(vrep.simxGetJointPosition(self._clientID, self._RightMotor, vrep.simx_opmode_blocking))
+            #     # leftMotorAngPos  = vrep.unwrap_vrep(vrep.simxGetJointPosition(self._clientID, self._LeftMotor, vrep.simx_opmode_blocking))
+            #     # RoboAbsPos       = vrep.unwrap_vrep(vrep.simxGetObjectPosition(self._clientID, self._Robobo, -1, vrep.simx_opmode_blocking))
+            #     time.sleep(0.005)
+            # print("sleeping for {}".format(duration))
+
+            # busy waiting
+            start_time = self.get_sim_time()
+            while self.get_sim_time() - start_time < duration:
+                pass
+
+            # Stop to move the wheels motor. Angular velocity.
+            stopRightVelocity = stopLeftVelocity = 0
+            self._vrep_set_joint_target_velocity(self._LeftMotor, stopLeftVelocity,
+                                                      vrep.simx_opmode_oneshot)
+            self._vrep_set_joint_target_velocity(self._RightMotor, stopRightVelocity,
+                                                      vrep.simx_opmode_oneshot)
+            self.wait_for_ping()
 
     def talk(self, message):
         print("ROBOT SAYS: {}".format(message))

@@ -133,18 +133,28 @@ if __name__ == "__main__":
             _, output = torch.max(outputs.data, 1)
             output = output.item()
             # Check if it got stuck
+
             if output == prev_out and output != 0:
                 counter += 1
                 if counter >= 3:
                     output = 5
-            prev_out = output
+
             print(output)
+
             # Motors actuators
             left_motor = dataset.ACTIONS[output]["motors"][0]
             right_motor = dataset.ACTIONS[output]["motors"][1]
             print("l " + str(left_motor) + ", r: " + str(right_motor))
-            time = dataset.ACTIONS[output]["time"]
-            rob.move(left_motor, right_motor, time)
+
+            if output != 0:
+                time = dataset.ACTIONS[output]["time"]
+            else:
+                time = None
+
+            if prev_out != output or (prev_out == output and output != 0):
+                rob.move(left_motor, right_motor, time)
+
+            prev_out = output
 
         rob.pause_simulation()
         # Stopping the simualtion resets the environment
