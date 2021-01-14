@@ -42,12 +42,12 @@ def one_hot_vectorization(val, max_classes):
 
 
 def generate_eversive_move(values: list) -> int:
-    left_ir, half_left_ir, center_ir, half_right_ir, right_ir = values
+    right_ir, half_right_ir, center_ir, half_left_ir, left_ir = values
 
     if all(vals == 0 for vals in values):
         return 0
 
-    elif center_ir < -0.3:
+    elif center_ir < -0.3 or all(vals > -0.2 for vals in values):
         return 5
 
     elif all(half_left_ir <= vals for vals in values) or half_left_ir < -0.25:

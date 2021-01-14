@@ -1,15 +1,18 @@
-import robobo
+# import robobo
 from pynput import keyboard
 from tqdm import tqdm
-
+from sklearn import preprocessing
 import obstacle_avoidance.generate_dataset as dataset
+import robobo
 from obstacle_avoidance.model import Model,Dataset
 import torch
 from torch.utils.data import DataLoader
 import numpy as np
 
 
+
 PRESSED = False
+robots = ["", "#0", "#2"]
 
 
 def train_network(network, train_input, epochs, learning_rate=0.01):
@@ -40,7 +43,7 @@ def train_network(network, train_input, epochs, learning_rate=0.01):
     return network, total_losses
 
 
-def test_network(network, test_load):
+def network_test(network, test_load):
     corr = 0
     tot = 0
     counter = 0
@@ -69,9 +72,6 @@ def retrieve_network():
 
 def prepare_datasets():
     train_data, train_pred = dataset.generate_dataset(500000)
-    # print(train_data[:15])
-    # print(train_pred[:15])
-    # input()
     test_data, test_pred = dataset.generate_dataset(50000)
 
     train_data = torch.Tensor(train_data)
@@ -87,11 +87,12 @@ def prepare_datasets():
 
 
 def get_input():
-    ir_signal = np.log(np.array(rob.read_irs())) / 10
+    ir_signal = np.log(np.array(rob.read_irs()[3:])) / 10
     ir_signal[ir_signal == np.NINF] = 0
-    ir_signal = torch.Tensor(ir_signal[-5:])
+    ir_signal = torch.Tensor(ir_signal)
     ir_signal = ir_signal.view(size=(1, ir_signal.size(0)))
     return ir_signal
+
 
 def keyboard_action(key):
     global PRESSED
@@ -99,17 +100,29 @@ def keyboard_action(key):
         PRESSED = True
 
 
+def compute_reward(moves):
+    score = 0
+    for move in moves:
+        l = move[0]
+        r = move[1]
+        normalized_l = preprocessing.normalize([l])[0]
+        normalized_r = preprocessing.normalize([r])[0]
+        normalized_ir = preprocessing.normalize([move[2]])[0]
+        score += (l + r) + (1 - np.abs(normalized_r - normalized_l)) * (1 - normalized_ir)
+    return score
+
+
 if __name__ == "__main__":
     train = True
-    device = torch.device("cuda" if torch.cuda.is_available()
-                          else "cpu")
+    # device = torch.device("cuda" if torch.cuda.is_available()
+    #                       else "cpu")
 
     if train is True:
         nn = Model(input_size=5, output_size=6)
         batches = 10
         train_loader, test_loader = prepare_datasets()
         nn, _ = train_network(nn, train_loader, 10)
-        accuracy, _, _ = test_network(nn, test_loader)
+        accuracy, _, _ = network_test(nn, test_loader)
         save_network(nn)
         print("network saved")
         print(accuracy)
@@ -117,45 +130,55 @@ if __name__ == "__main__":
     else:
         l1 = keyboard.Listener(on_press=lambda key: keyboard_action(key))
         l1.start()
-        counter = 0
-        prev_out = -1
-        nn = retrieve_network()
-        rob = robobo.SimulationRobobo().connect(address='127.0.0.1', port=19997)
-        while PRESSED is False:
-            if PRESSED is True or rob.is_simulation_running() is False:
-                print("Error with simulation")
-                break
-            # IR reading
-            ir = get_input()
-            print("ROB Irs: {}".format(ir))
-            # Net output
-            outputs = nn(ir)
-            _, output = torch.max(outputs.data, 1)
-            output = output.item()
-            # Check if it got stuck
 
-            if output == prev_out and output != 0:
-                counter += 1
-                if counter >= 3:
-                    output = 5
+        for robot in robots:
+            counter = 0
+            prev_out = -1
+            actions = []
+            nn = retrieve_network()
+            rob = robobo.SimulationRobobo(robot).connect(address='127.0.0.1', port=19996)
 
-            print(output)
+            while PRESSED is False:
+                if PRESSED is True or rob.is_simulation_running() is False:
+                    print("Error with simulation")
+                    break
 
-            # Motors actuators
-            left_motor = dataset.ACTIONS[output]["motors"][0]
-            right_motor = dataset.ACTIONS[output]["motors"][1]
-            print("l " + str(left_motor) + ", r: " + str(right_motor))
+                # IR reading
+                ir = get_input()
+                print("ROB Irs: {}".format(ir))
 
-            if output != 0:
-                time = dataset.ACTIONS[output]["time"]
-            else:
-                time = None
+                # Net output
+                outputs = nn(ir)
+                _, output = torch.max(outputs.data, 1)
+                output = output.item()
 
-            if prev_out != output or (prev_out == output and output != 0):
-                rob.move(left_motor, right_motor, time)
+                # Check if it got stuck
+                if output == prev_out and output != 0:
+                    counter += 1
+                    if counter >= 3:
+                        output = 5
 
-            prev_out = output
+                print(output)
+                # Motors actuators
+                left_motor = dataset.ACTIONS[output]["motors"][0]
+                right_motor = dataset.ACTIONS[output]["motors"][1]
+                print("l " + str(left_motor) + ", r: " + str(right_motor))
 
-        rob.pause_simulation()
-        # Stopping the simualtion resets the environment
-        rob.stop_world()
+                actions.append([left_motor, right_motor, max(ir)])
+
+                if output != 0:
+                    time = dataset.ACTIONS[output]["time"]
+                else:
+                    time = None
+
+                if prev_out != output or (prev_out == output and output != 0):
+                    rob.move(left_motor, right_motor, time)
+
+                prev_out = output
+
+            PRESSED = False
+            print("reward for robot" + robot + ": " + str(compute_reward(actions)))
+
+            # Stopping the simualtion resets the environment
+            rob.pause_simulation()
+            rob.stop_world()
