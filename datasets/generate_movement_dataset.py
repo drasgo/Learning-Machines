@@ -35,12 +35,6 @@ ACTIONS = {
 }
 
 
-def one_hot_vectorization(val, max_classes):
-    one_hot = [0 for _ in range(max_classes)]
-    one_hot[val] = 1
-    return one_hot
-
-
 def generate_eversive_move(values: list) -> int:
     left_ir, half_left_ir, center_ir, half_right_ir, right_ir = values
 
@@ -97,7 +91,7 @@ def generate_dataset(dim: int=100000):
                               random.uniform(-0.35, -0.1),
                               random.uniform(-0.45, -0.2),
                               random.uniform(-0.35, -0.1)]
-            elif choice == 5:
+            else:
                 input_data = [0,
                               random.uniform(-0.1, 0),
                               random.uniform(-0.2, 0),

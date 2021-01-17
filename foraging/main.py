@@ -1,3 +1,8 @@
+import random
+
+from cv2 import cv2
+import PIL
+from PIL import Image
 import robobo
 from pynput import keyboard
 from tqdm import tqdm
@@ -31,6 +36,26 @@ def keyboard_action(key):
 
 def main():
     train = True
+    # rob = robobo.SimulationRobobo().connect(address='127.0.0.1', port=19997)
+    # rob.move(40, 40, 1000)
+    # rob.set_phone_tilt(26, 100)
+    #
+    # image = rob.get_image_front()
+    im = PIL.Image.open("ball2.png")
+    im2 = PIL.Image.open("tt.png")
+    im3 =PIL.Image.new("RGB", im2.size)
+    image_height = im2.size[1]
+    image_width = im2.size[0]
+    # im3.paste(im2, (0,0))
+    # offset = -int(image_height/20) - im.size[1]/2
+    offset = random.randint(-int(image_height/20), int(image_height/3)) - im.size[1]/2
+    im3 = im2.copy()
+    im3.paste(im, (random.randint(0, image_width),
+                   int((2*image_height/3) + offset)))
+    im3.show()
+    # cv2.imwrite("test_pictures.png", im2)
+    input()
+    pass
 
     if train is True:
         nn = retrieve_network(5, 6, CNN, device)

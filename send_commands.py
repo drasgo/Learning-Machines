@@ -77,7 +77,7 @@ def main():
     # rob.set_phone_pan(343, 100)
     # rob.set_phone_tilt(109, 100)
     # time.sleep(1)
-    # rob.set_phone_pan(11, 100)
+    rob.set_phone_pan(11, 100)
     # rob.set_phone_tilt(26, 100)
 
     # Following code makes the robot talk and be emotional
