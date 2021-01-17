@@ -2,7 +2,7 @@ import robobo
 import obstacle_avoidance.main as obs_main
 import foraging.main as for_main
 
-assignment = "foraging"
+assignment = "obstacle_avoidance"
 
 if __name__ == "__main__":
     if assignment == "obstacle_avoidance":

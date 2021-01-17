@@ -2,6 +2,7 @@ import os
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
+from tqdm import tqdm
 
 from models.Dataset import Dataset
 
@@ -41,3 +42,45 @@ def get_ir_signal(rob, device):
     ir_signal = ir_signal.view(size=(1, ir_signal.size(0)))
     return ir_signal
 
+def train_classifier_network(network, train_dataset, epochs, device, learning_rate=0.01):
+    total_iterations = 0
+    total_losses = []
+    criterion = torch.nn.CrossEntropyLoss()
+    optimizer = torch.optim.Adam(network.parameters(), lr=learning_rate, weight_decay=0.001)
+
+    for epoch in range(epochs):  # loop over the dataset multiple times
+        running_loss = 0.0
+        for batch_idx, (inputs, labels) in tqdm(enumerate(train_dataset)):
+
+            optimizer.zero_grad()
+            outs = network(inputs)
+            loss = criterion(outs, labels.to(device))
+            loss.backward()
+            optimizer.step()
+
+            total_iterations += 1
+            total_losses.append(loss.item())
+            running_loss += loss.item()
+            if batch_idx % 2000 == 1999:
+                print(
+                    "[%d, %5d] loss: %.3f"
+                    % (epoch + 1, batch_idx + 1, running_loss / 2000)
+                )
+                running_loss = 0.0
+    return network, total_losses
+
+
+def classifier_network_testing(network, test_dataset, batches):
+    corr = 0
+    tot = 0
+    counter = 0
+    with torch.no_grad():
+        for data, labels in test_dataset:
+            counter += 1
+            outs = network(data)
+            _, predicted = torch.max(outs.data, 1)
+            tot += labels.size(0)
+            corr += (predicted == labels).sum().item()
+    acc = 100 * corr / tot
+    print("Accuracy of the network on the %d test data: %d %%" % (counter * batches, acc))
+    return acc, corr, tot

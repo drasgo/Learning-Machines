@@ -1,31 +1,22 @@
 import random
 
-from cv2 import cv2
 import PIL
 from PIL import Image
 import robobo
 from pynput import keyboard
-from tqdm import tqdm
 
-import datasets.generate_movement_dataset as dataset
+import datasets.generate_movement_dataset as movement_dataset
+import datasets.generate_images_dataset as image_dataset
 from models.cnn_classifier import CNN
 import torch
 
-from utils import retrieve_network, save_network, prepare_datasets, get_ir_signal
-
+from models.mlp_classifier import MLP
+from utils import retrieve_network, save_network, prepare_datasets, get_ir_signal, train_classifier_network, \
+    classifier_network_testing
 
 PRESSED = False
 device = "cpu"
-# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 batches = 10
-
-
-def train_network(network, train_dataset, epochs:int, learning_rate: int=0.01):
-    pass
-
-
-def network_testing(network, test_dataset):
-    pass
 
 
 def keyboard_action(key):
@@ -36,46 +27,64 @@ def keyboard_action(key):
 
 def main():
     train = True
+
     # rob = robobo.SimulationRobobo().connect(address='127.0.0.1', port=19997)
-    # rob.move(40, 40, 1000)
     # rob.set_phone_tilt(26, 100)
-    #
-    # image = rob.get_image_front()
-    im = PIL.Image.open("ball2.png")
-    im2 = PIL.Image.open("tt.png")
-    im3 =PIL.Image.new("RGB", im2.size)
+    # rob.move(50, 50, 1000)
+    # p = rob.read_irs()
+    # print(p)
+    # input()
+    counter = 0
+    prev_out = -1
+
+    im = PIL.Image.open("ball.png")
+    im2 = PIL.Image.open("landscape.png")
+
     image_height = im2.size[1]
     image_width = im2.size[0]
-    # im3.paste(im2, (0,0))
-    # offset = -int(image_height/20) - im.size[1]/2
+
     offset = random.randint(-int(image_height/20), int(image_height/3)) - im.size[1]/2
+    ball_x = random.randint(0, image_width)
+    ball_y = int((2*image_height / 3) + offset)
+
     im3 = im2.copy()
-    im3.paste(im, (random.randint(0, image_width),
-                   int((2*image_height/3) + offset)))
+    im3.paste(im, (ball_x, ball_y))
     im3.show()
-    # cv2.imwrite("test_pictures.png", im2)
+
     input()
     pass
 
     if train is True:
-        nn = retrieve_network(5, 6, CNN, device)
-        train_loader, test_loader = prepare_datasets(dataset, batches, device)
-        nn, _ = train_network(nn, train_loader, 10)
-        accuracy, _, _ = network_testing(nn, test_loader)
-        save_network(nn)
-        print("network saved")
+        cnn = retrieve_network(5, 6, CNN, device, "movement_network.pt")
+        mlp = retrieve_network(5, 6, MLP, device, "images_network.pt")
+
+        mlp_train_loader, mlp_test_loader = prepare_datasets(movement_dataset, batches, device)
+        cnn_train_loader, cnn_test_loader = prepare_datasets(image_dataset, batches, device)
+
+        mlp, _ = train_classifier_network(mlp, mlp_train_loader, 10, device)
+        accuracy, _, _ = classifier_network_testing(mlp, mlp_test_loader, batches)
+
+        cnn, _ = train_classifier_network(cnn, cnn_train_loader, 10, device)
+        accuracy, _, _ = classifier_network_testing(cnn, cnn_test_loader, batches)
+
+        save_network(mlp, "movement_network.pt")
+        save_network(cnn, "images_network.pt")
+
+        print("networks saved")
         print(accuracy)
 
     else:
         l1 = keyboard.Listener(on_press=lambda key: keyboard_action(key))
         l1.start()
-        counter = 0
-        prev_out = -1
+
         nn = retrieve_network(5, 6, CNN, device)
         rob = robobo.SimulationRobobo().connect(address='127.0.0.1', port=19997)
+        # rob.set_phone_tilt(26, 100)
+        # image = rob.get_image_front()
+
         while PRESSED is False:
             if PRESSED is True or rob.is_simulation_running() is False:
-                print("Error with simulation")
+                print("Finishing")
                 break
 
             # IR reading
