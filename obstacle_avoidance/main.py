@@ -25,7 +25,7 @@ def main():
     train = True
 
     if train is True:
-        nn = retrieve_network(5, 6, MLP, device)
+        nn = retrieve_network(input_nodes=5, output_nodes=6, Model=MLP, device=device)
         train_loader, test_loader = prepare_datasets(dataset, batches, device)
 
         nn, _ = train_classifier_network(nn, train_loader, 10, device)
@@ -40,7 +40,7 @@ def main():
         l1.start()
         counter = 0
         prev_out = -1
-        nn = retrieve_network(5, 6, MLP, device)
+        nn = retrieve_network(input_nodes=5, output_nodes=6, Model=MLP, device=device)
         rob = robobo.SimulationRobobo().connect(address='127.0.0.1', port=19997)
         while PRESSED is False:
             if PRESSED is True or rob.is_simulation_running() is False:
@@ -66,12 +66,8 @@ def main():
             # Motors actuators
             left_motor = dataset.ACTIONS[output]["motors"][0]
             right_motor = dataset.ACTIONS[output]["motors"][1]
+            time = dataset.ACTIONS[output]["time"]
             print("l " + str(left_motor) + ", r: " + str(right_motor))
-
-            if output != 0:
-                time = dataset.ACTIONS[output]["time"]
-            else:
-                time = None
 
             if prev_out != output or (prev_out == output and output != 0):
                 rob.move(left_motor, right_motor, time)

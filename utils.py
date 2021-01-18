@@ -11,27 +11,34 @@ def save_network(network, network_name: str="network.pt"):
     torch.save(network.state_dict(), network_name)
 
 
-def retrieve_network(input_nodes:int , output_nodes: int, Model, device, network_name: str="network.pt"):
-    model = Model(input_nodes, output_nodes).to(device)
+def retrieve_network(Model, device, input_nodes: int=None, output_nodes: int=None, network_name: str="network.pt"):
+    if input_nodes is not None and output_nodes is not None:
+        model = Model(input_nodes, output_nodes).to(device)
+    else:
+        model = Model().to(device)
     if os.path.exists("network.pt"):
         model.load_state_dict(torch.load(network_name))
         model.eval()
     return model
 
 
-def prepare_datasets(dataset, batch_size: int, device, train_size: int = 500000, test_size: int=50000):
+def prepare_datasets(dataset, batch_size: int, device, train_size: int = 500000, test_size: int=50000, transform=None):
     train_data, train_pred = dataset.generate_dataset(train_size)
     test_data, test_pred = dataset.generate_dataset(test_size)
 
-    train_data = torch.tensor(train_data, device=device)
-    train_pred = torch.tensor(train_pred, device=device)
-    trainset = Dataset(train_data, train_pred)
+    if transform is None:
+        train_data = torch.tensor(train_data, device=device)
+        train_pred = torch.tensor(train_pred, device=device)
+
+        test_data = torch.tensor(test_data, device=device)
+        test_pred = torch.tensor(test_pred, device=device)
+
+    trainset = Dataset(train_data, train_pred, transform)
     trainloader = DataLoader(trainset, batch_size=batch_size, shuffle=True)
 
-    test_data = torch.tensor(test_data, device=device)
-    test_pred = torch.tensor(test_pred, device=device)
-    testset = Dataset(test_data, test_pred)
+    testset = Dataset(test_data, test_pred, transform)
     testloader = DataLoader(testset,batch_size=batch_size, shuffle=True)
+
     return trainloader, testloader
 
 

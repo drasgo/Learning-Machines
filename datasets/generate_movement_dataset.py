@@ -5,7 +5,7 @@ ACTIONS = {
     0: {
         "name": "up",
         "motors": (50, 50),
-        "time": 700
+        "time": None
     },
     1: {
         "name": "up-left",

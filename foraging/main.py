@@ -1,7 +1,4 @@
-import random
-
-import PIL
-from PIL import Image
+import torchvision.transforms as T
 import robobo
 from pynput import keyboard
 
@@ -37,29 +34,37 @@ def main():
     counter = 0
     prev_out = -1
 
-    im = PIL.Image.open("ball.png")
-    im2 = PIL.Image.open("landscape.png")
-
-    image_height = im2.size[1]
-    image_width = im2.size[0]
-
-    offset = random.randint(-int(image_height/20), int(image_height/3)) - im.size[1]/2
-    ball_x = random.randint(0, image_width)
-    ball_y = int((2*image_height / 3) + offset)
-
-    im3 = im2.copy()
-    im3.paste(im, (ball_x, ball_y))
-    im3.show()
-
-    input()
-    pass
+    # im = PIL.Image.open("ball.png")
+    # im2 = PIL.Image.open("landscape.png")
+    #
+    # image_height = im2.size[1]
+    # image_width = im2.size[0]
+    #
+    # offset = random.randint(-int(image_height/20), int(image_height/3)) - im.size[1]/2
+    # ball_x = random.randint(0, image_width)
+    # ball_y = int((2*image_height / 3) + offset)
+    #
+    # im3 = im2.copy()
+    # im3.paste(im, (ball_x, ball_y))
+    # im3.show()
+    #
+    # input()
+    # pass
 
     if train is True:
-        cnn = retrieve_network(5, 6, CNN, device, "movement_network.pt")
-        mlp = retrieve_network(5, 6, MLP, device, "images_network.pt")
+        cnn = retrieve_network(CNN, device, network_name="movement_network.pt")
+        mlp = retrieve_network(input_nodes=5, output_nodes=6, Model=MLP, device=device, network_name="images_network.pt")
 
+        transform = T.Compose([
+            T.RandomRotation((-7, 7)),
+            T.RandomHorizontalFlip(),
+            T.ToTensor()
+        ])
+
+        cnn_train_loader, cnn_test_loader = prepare_datasets(image_dataset, batches, device, train_size=50000, transform=transform)
+        print(cnn_train_loader)
+        input()
         mlp_train_loader, mlp_test_loader = prepare_datasets(movement_dataset, batches, device)
-        cnn_train_loader, cnn_test_loader = prepare_datasets(image_dataset, batches, device)
 
         mlp, _ = train_classifier_network(mlp, mlp_train_loader, 10, device)
         accuracy, _, _ = classifier_network_testing(mlp, mlp_test_loader, batches)
@@ -102,11 +107,11 @@ def main():
                     output = 5
 
             # Motors actuators
-            left_motor = dataset.ACTIONS[output]["motors"][0]
-            right_motor = dataset.ACTIONS[output]["motors"][1]
+            left_motor = image_dataset.ACTIONS[output]["motors"][0]
+            right_motor = image_dataset.ACTIONS[output]["motors"][1]
 
             if output != 0:
-                time = dataset.ACTIONS[output]["time"]
+                time = image_dataset.ACTIONS[output]["time"]
             else:
                 time = None
 
