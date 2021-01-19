@@ -22,14 +22,14 @@ def keyboard_action(key):
 
 
 def main():
-    train = True
+    train = False
 
     if train is True:
         nn = retrieve_network(input_nodes=5, output_nodes=6, Model=MLP, device=device)
         train_loader, test_loader = prepare_datasets(dataset, batches, device)
 
         nn, _ = train_classifier_network(nn, train_loader, 10, device)
-        accuracy, _, _ = classifier_network_testing(nn, test_loader, batches)
+        accuracy, _, _ = classifier_network_testing(nn, test_loader, batches, device)
 
         save_network(nn)
         print("network saved")
@@ -40,7 +40,7 @@ def main():
         l1.start()
         counter = 0
         prev_out = -1
-        nn = retrieve_network(input_nodes=5, output_nodes=6, Model=MLP, device=device)
+        nn = retrieve_network(input_nodes=5, output_nodes=6, Model=MLP, device=device, network_name="./movement_network.pt")
         rob = robobo.SimulationRobobo().connect(address='127.0.0.1', port=19997)
         while PRESSED is False:
             if PRESSED is True or rob.is_simulation_running() is False:

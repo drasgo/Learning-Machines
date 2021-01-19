@@ -4,6 +4,7 @@ import foraging.main as for_main
 
 assignment = "foraging"
 
+
 if __name__ == "__main__":
     if assignment == "obstacle_avoidance":
         obs_main.main()
