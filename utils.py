@@ -11,38 +11,53 @@ def save_network(network, network_name: str="network.pt"):
     torch.save(network.state_dict(), network_name)
 
 
-def retrieve_network(Model, device, input_nodes: int=None, output_nodes: int=None, network_name: str="network.pt"):
-    if input_nodes is not None and output_nodes is not None:
-        model = Model(input_nodes, output_nodes).to(device)
+def retrieve_network(Model, device, input_nodes: int=None, hidden_nodes: int=None, output_nodes: int=6, network_name: str="network.pt"):
+    if input_nodes is not None and hidden_nodes is not None:
+        model = Model(input_nodes, hidden_nodes, output_nodes).to(device)
     else:
         model = Model(output_nodes).to(device)
     if os.path.exists(network_name):
-        print("ciao")
         model.load_state_dict(torch.load(network_name))
         model.eval()
     return model
 
 
-def prepare_dataset(train_data, train_pred, batch_size, transform):
+def prepare_dataset(train_data, train_pred, batch_size, transform=None):
     trainset = Dataset(train_data, train_pred, transform)
     trainloader = DataLoader(trainset, batch_size=batch_size, shuffle=True)
     return trainloader
 
-def prepare_datasets(dataset, batch_size: int, device, train_size: int = 500000, test_size: int=50000, transform=None):
+def prepare_mlp_datasets(
+        dataset,
+        batch_size: int,
+        device,
+        train_size: int = 500000,
+        testing_percentage: int=0.15,
+        validation_percentage: int=0.15
+):
     train_data, train_pred = dataset.generate_dataset(train_size)
-    test_data, test_pred = dataset.generate_dataset(test_size)
+    validation_data, validation_pred = dataset.generate_dataset(int(train_size*validation_percentage))
+    test_data, test_pred = dataset.generate_dataset(int(train_size*testing_percentage))
 
-    if transform is None:
-        train_data = torch.tensor(train_data, device=device)
-        train_pred = torch.tensor(train_pred, device=device)
+    train_data = torch.tensor(train_data, device=device)
+    train_pred= torch.tensor(test_pred, device=device)
+    trainloader = prepare_dataset(train_data, train_pred, batch_size)
 
+    if validation_percentage != 0.0:
+        validation_data = torch.tensor(validation_data, device=device)
+        validation_pred = torch.tensor(validation_pred, device=device)
+        validation_loader = prepare_dataset(validation_data, validation_pred, batch_size)
+    else:
+        validation_loader = None
+
+    if testing_percentage != 0.0:
         test_data = torch.tensor(test_data, device=device)
         test_pred = torch.tensor(test_pred, device=device)
+        test_loader = prepare_dataset(test_data, test_pred, batch_size)
+    else:
+        test_loader = None
 
-    trainloader = prepare_dataset(train_data, train_pred, batch_size, transform)
-    testloader = prepare_dataset(test_data, test_pred, batch_size, transform)
-
-    return trainloader, testloader
+    return trainloader, validation_loader, test_loader
 
 
 def get_ir_signal(rob, device):

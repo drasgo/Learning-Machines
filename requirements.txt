@@ -1,2 +1,9 @@
 libgtk2.0-dev
 pkg-config
+torch~=1.7.1
+numpy~=1.19.3
+Pillow~=8.1.0
+tqdm~=4.56.0
+pynput~=1.7.2
+matplotlib~=3.3.3
+torchvision~=0.8.2

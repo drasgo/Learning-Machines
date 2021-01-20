@@ -1,12 +1,11 @@
 import robobo
 from pynput import keyboard
-from tqdm import tqdm
 
 import datasets.generate_movement_dataset as dataset
 from models.mlp_classifier import MLP
 import torch
 
-from utils import retrieve_network, save_network, prepare_datasets, get_ir_signal, train_classifier_network, \
+from utils import retrieve_network, save_network, prepare_mlp_datasets, get_ir_signal, train_classifier_network, \
     classifier_network_testing
 
 PRESSED = False
@@ -25,10 +24,10 @@ def main():
     train = False
 
     if train is True:
-        nn = retrieve_network(input_nodes=5, output_nodes=6, Model=MLP, device=device)
-        train_loader, test_loader = prepare_datasets(dataset, batches, device)
+        nn = retrieve_network(input_nodes=5, hidden_nodes=100, output_nodes=6, Model=MLP, device=device)
+        train_loader, test_loader = prepare_mlp_datasets(dataset, batches, device)
 
-        nn, _ = train_classifier_network(nn, train_loader, 10, device)
+        nn, trainig_loss, validation_loss = train_classifier_network(nn, train_loader, 10, device)
         accuracy, _, _ = classifier_network_testing(nn, test_loader, batches, device)
 
         save_network(nn)
