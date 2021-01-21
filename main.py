@@ -2,8 +2,8 @@ from obstacle_avoidance import main_obs as obs_main
 import foraging.main_fora as for_main
 
 assignment = "foraging"
-data_package = "data56.pkl"
-labels_package = "labels56.pkl"
+data_package = "data20.pkl"
+labels_package = "labels20.pkl"
 epochs = 10
 batches = 10
 mlp_hidden_nodes = 100

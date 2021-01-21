@@ -1,3 +1,4 @@
+import json
 import os
 import pickle
 import random
@@ -34,12 +35,12 @@ def prep_dataset_v2(data_package, labels_package, batch_size, validation, testin
     if not os.path.exists(data_package_path) or not os.path.exists(labels_package_path):
         _, _ = image_dataset.generate_dataset(images_folder)
 
-    with open(data_package_path, "rb") as fp:
+    with open(labels_package_path, "rb") as fp:
         labels = pickle.load(fp)
         assert isinstance(labels, list)
     print("loaded labels")
 
-    with open(labels_package_path, "rb") as fp:
+    with open(data_package_path, "rb") as fp:
         data = pickle.load(fp)
         assert isinstance(data, list)
     print("loaded data")
@@ -87,9 +88,83 @@ def prep_dataset_v2(data_package, labels_package, batch_size, validation, testin
     return train_dataset, validation_dataset, test_dataset
 
 
-def plot_training_results(training_loss, validation_loss, testing_accuracy, model):
-    # TODO
-    pass
+def save_training_results(
+        training_loss: list,
+        validation_loss: list,
+        testing_accuracy: float,
+        model,
+        batches: int,
+        epochs: int,
+        learning_rate: float,
+        training_points: int,
+        testing_points: int,
+        validation_points: int
+):
+    if os.path.exists("result.json"):
+        with open("result.json", "r") as fp:
+            result = json.load(fp)
+    else:
+        result = {}
+    index = len(result)
+    result[index] = {
+        "type": model,
+        "training_loss": training_loss,
+        "validation_loss": validation_loss,
+        "testing_accuracy": testing_accuracy,
+        "batches": batches,
+        "epochs": epochs,
+        "learning_rate": learning_rate,
+        "training_points": training_points,
+        "testing_points": testing_points,
+        "validation_points": validation_points
+    }
+
+    with open("result.json", "w") as fp:
+        json.dump(result, fp)
+
+
+def labelling_testing(image):
+    im_list = image.tolist()
+    # im_list = im.tolist()
+
+    horizontal_position = -1
+    # Iterate through rows (from the bottom to  the topof the image,  it should recognize closer targets)
+    for row_index in range(len(im_list) - 1, -1, -1):
+
+        # Iterate through columns (meaning that each "column index" is the index of a pixel)
+        for column_index in range(len(im_list[row_index])):
+            # Pixel cell with r g b values
+            pixel = im_list[row_index][column_index]
+            # If the pixel is green look in the same row if there are other green pixels. If so, check what is the last
+            # green pixel and save it. So, the average green pixel position on the horizontal axis is the average of these two
+            if (pixel[0] < 165 and pixel[1] > 195 and pixel[2] < 175) or (
+                    pixel[0] < 20 and pixel[1] > 150 and pixel[2] < 20):
+                last_pixel = -1
+
+                for other_pixels in range(column_index + 1, len(im_list[row_index])):
+                    other_pixel = im_list[row_index][other_pixels]
+                    if (other_pixel[0] < 165 and other_pixel[1] > 205 and other_pixel[2] < 175) or \
+                            (other_pixel[0] < 20 and other_pixel[1] > 150 and other_pixel[2] < 20):
+                        continue
+                    last_pixel = other_pixels - 1
+                    break
+
+                if last_pixel == -1:
+                    average_pixel = column_index
+
+                else:
+                    average_pixel = (last_pixel + column_index) / 2
+
+                # the horizontal position is a perccentage between 0 (far left) and 1 (far right). This will be
+                # divided in 5 slots which will be used for finding the labels of the 5 images.
+                # If no green pixel was found, than the horiizontal_axis is -1 and the label will be "no target in the image"
+                horizontal_position = average_pixel / len(im_list[row_index])
+                break
+        if horizontal_position != -1:
+            break
+
+    #     choose label for moving towards the block (which is in the picture)
+    return image_dataset.generate_label(horizontal_position)
 
 
 def main(
@@ -117,6 +192,9 @@ def main(
 
             print("Generating MLP dataset")
             mlp_train_loader, mlp_validation_loader, mlp_test_loader = prepare_mlp_datasets(movement_dataset, batches, device_mlp)
+            training_points = len(mlp_train_loader) * batches
+            testing_points = len(mlp_test_loader) * batches
+            validation_points = len(mlp_validation_loader) * batches
 
             print("Training MLP")
             mlp, training_loss, validation_loss = train_classifier_network(network=mlp,
@@ -138,51 +216,83 @@ def main(
 
             print("Saving MLP")
             save_network(mlp, movement_model)
-            plot_training_results(training_loss, validation_loss, accuracy, "MLP")
+            print("Saving MLP training results")
+            save_training_results(training_loss=training_loss,
+                                  validation_loss=validation_loss,
+                                  testing_accuracy=accuracy,
+                                  model="MLP",
+                                  batches=batches,
+                                  epochs=epochs,
+                                  learning_rate=learning_rate,
+                                  training_points=training_points,
+                                  testing_points=testing_points,
+                                  validation_points=validation_points)
 
         transform = T.Compose([
             T.ToTensor(),
             T.Normalize(0, 1)
         ])
-        print("Retrieving CNN model")
-        cnn = retrieve_network(Model=CNN,
-                               device=device,
-                               output_nodes=6,
-                               network_name=images_model)
+        for batches in [16, 10]:
+            for learning_rate in [0.01, 0.001, 0.1]:
+                for data_file, labels_file, network_name in [["data15.pkl", "labels15.pkl", "15"],
+                                                             ["data25.pkl", "labels25.pkl", "25"],
+                                                             ["data35.pkl", "labels35.pkl", "35"],
+                                                             ["data45.pkl", "labels45.pkl", "45"]]:
+                    model = models_folder + "images_points" + network_name + "_lr" + str(learning_rate) + " _bat" + str(batches) + "_network.pt"
+                    print("Retrieving CNN model")
+                    cnn = retrieve_network(Model=CNN,
+                                           device=device,
+                                           output_nodes=6,
+                                           network_name=model)
 
-        print("creating dataset")
-        train_dataset, validation_dataset, testing_dataset = prep_dataset_v2(data_package=data_package,
-                                                                             labels_package=labels_package,
-                                                                             batch_size=batches,
-                                                                             validation=validation,
-                                                                             testing=testing,
-                                                                             transform=transform)
+                    print("creating dataset")
+                    train_dataset, validation_dataset, testing_dataset = prep_dataset_v2(data_package=data_file,
+                                                                                         labels_package=labels_file,
+                                                                                         batch_size=batches,
+                                                                                         validation=validation,
+                                                                                         testing=testing,
+                                                                                         transform=transform)
+                    training_points = len(train_dataset) * batches
+                    testing_points = len(testing_dataset) * batches
+                    validation_points = len(validation_dataset) * batches
+                    print("Training CNN")
+                    cnn, train_loss, validation_loss = train_classifier_network(network=cnn,
+                                                                                train_dataset=train_dataset,
+                                                                                epochs=epochs,
+                                                                                device=device,
+                                                                                validation_dataset=validation_dataset,
+                                                                                learning_rate=learning_rate)
+                    del train_dataset
+                    del validation_dataset
+                    print("Removed train dataset and validation dataset")
+                    accuracy, _, _ = classifier_network_testing(cnn, testing_dataset, batches, device)
+                    print("CNN accuracy:" + str(accuracy))
+                    del testing_dataset
+                    print("Removed test dataset")
+                    model = models_folder + "images_points" + network_name + "_lr" + str(learning_rate) + " _bat" + str(batches) + "_network.pt"
 
-        print("Training CNN")
-        cnn, train_loss, validation_loss = train_classifier_network(network=cnn,
-                                                                    train_dataset=train_dataset,
-                                                                    epochs=epochs,
-                                                                    device=device,
-                                                                    validation_dataset=validation_dataset,
-                                                                    learning_rate=learning_rate)
-        del train_dataset
-        del validation_dataset
-
-        accuracy, _, _ = classifier_network_testing(cnn, testing_dataset, batches, device)
-        print("CNN accuracy:" + str(accuracy))
-        del testing_dataset
-
-        plot_training_results(train_loss, validation_loss, accuracy, "CNN")
+                    print("Saving CNN")
+                    save_network(cnn, model)
+                    print("Saving CNN training results")
+                    save_training_results(training_loss=train_loss,
+                                          validation_loss=validation_loss,
+                                          testing_accuracy=accuracy,
+                                          model="CNN",
+                                          batches=batches,
+                                          epochs=epochs,
+                                          learning_rate=learning_rate,
+                                          training_points=training_points,
+                                          testing_points=testing_points,
+                                          validation_points=validation_points)
 
 
     l1 = keyboard.Listener(on_press=lambda key: keyboard_action(key))
     l1.start()
 
     rob = robobo.SimulationRobobo().connect(address='127.0.0.1', port=19997)
-    rob.play_simulation()
     rob.set_phone_tilt(26, 100)
 
-    mlp = retrieve_network(input_nodes=5, output_nodes=6, Model=MLP, device=device, network_name=movement_model)
+    mlp = retrieve_network(input_nodes=5, hidden_nodes=100, output_nodes=6, Model=MLP, device=device, network_name=movement_model)
     cnn = retrieve_network(Model=CNN, device=device, output_nodes=6, network_name=images_model)
 
     while PRESSED is False:
@@ -202,8 +312,8 @@ def main(
 
             # IR reading
             ir = get_ir_signal(rob, device)
-            image = rob.get_image_front()
-            image = T.ToPILImage()(image)
+            im = rob.get_image_front()
+            image = T.ToPILImage()(im)
 
             image = T.Compose([
                 T.ToTensor(),
@@ -222,27 +332,27 @@ def main(
             cnn_output = cnn_output.item()
 
             # Check if it got stuck
-            if mlp_output != 0 and \
-                    ((cnn_output in [0, 1, 2] and mlp_output in [3, 4]) or (
-                            cnn_output in [0, 3, 4] and mlp_output in [1, 2])):
+            if (cnn_output == 5 and mlp_output != 0) and \
+                    ((cnn_output in [0, 1, 2] and mlp_output in [3, 4]) or
+                     (cnn_output in [0, 3, 4] and mlp_output in [1, 2])):
                 print("in mlp")
-                print(mlp_output)
                 output = mlp_output
                 dataset = movement_dataset
 
             else:
                 print("in cnn")
-                print(cnn_output)
                 output = cnn_output
+                # output = labelling_testing(im)
                 dataset = image_dataset
                 if output == 5:
                     counter += 1
                     if counter == 3:
                         output = mlp_output
                         dataset = movement_dataset
-                    else:
-                        output = 4
+                else:
+                    counter = 0
 
+            print(output)
             # Motors actuators
             left_motor = dataset.ACTIONS[output]["motors"][0]
             right_motor = dataset.ACTIONS[output]["motors"][1]

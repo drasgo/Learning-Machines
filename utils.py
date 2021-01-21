@@ -40,7 +40,7 @@ def prepare_mlp_datasets(
     test_data, test_pred = dataset.generate_dataset(int(train_size*testing_percentage))
 
     train_data = torch.tensor(train_data, device=device)
-    train_pred= torch.tensor(test_pred, device=device)
+    train_pred= torch.tensor(train_pred, device=device)
     trainloader = prepare_dataset(train_data, train_pred, batch_size)
 
     if validation_percentage != 0.0:
@@ -99,10 +99,10 @@ def train_classifier_network(network, train_dataset, epochs, device, validation_
             total_iterations += 1
             epoch_train_loss.append(loss.item())
             running_loss += loss.item()
-            if batch_idx % 2000 == 1999:
+            if batch_idx % 1000 == 999:
                 print(
                     "[%d, %5d] loss: %.3f"
-                    % (epoch + 1, batch_idx + 1, running_loss / 2000)
+                    % (epoch + 1, batch_idx + 1, running_loss / 1000)
                 )
                 running_loss = 0.0
 

@@ -4,7 +4,7 @@ import random
 ACTIONS = {
     0: {
         "name": "up",
-        "motors": (40, 40),
+        "motors": (50, 50),
         "time": None
     },
     1: {

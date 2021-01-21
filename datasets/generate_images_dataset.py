@@ -18,8 +18,8 @@ ACTIONS = {
     },
     2: {
         "name": "left",
-        "motors": (0, 35),
-        "time": 600
+        "motors": (0, 50),
+        "time": 300
     },
     3: {
         "name": "up-right",
@@ -28,30 +28,26 @@ ACTIONS = {
     },
     4: {
         "name": "right",
-        "motors": (35, 0),
-        "time": 600
+        "motors": (50, 0),
+        "time": 300
     },
     5: {
         "name": "na",
-        "motors": (35, 0),
-        "time": 600
+        "motors": (50, 0),
+        "time": 300
     }
 }
-
 
 def generate_label(pixel_position):
     if pixel_position == -1:
         return 5
-    elif pixel_position < 0.2:
+    elif pixel_position < 0.33:
         return 2
-    elif 0.2 <= pixel_position < 0.4:
-        return 1
-    elif 0.4 <= pixel_position <= 0.6:
+    elif 0.33 <= pixel_position < 0.66:
         return 0
-    elif 0.6 < pixel_position <= 0.8:
-        return 3
-    elif pixel_position > 0.8:
+    elif pixel_position > 0.66:
         return 4
+
 
 def save_list_to_file(data_list, name):
     with open(name + ".pkl", "wb") as fp:
