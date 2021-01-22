@@ -11,32 +11,67 @@ ACTIONS = {
         "motors": (50, 50),
         "time": None
     },
-    1: {
-        "name": "up-left",
-        "motors": (0, 35),
-        "time": 400
-    },
     2: {
         "name": "left",
-        "motors": (0, 50),
-        "time": 300
-    },
-    3: {
-        "name": "up-right",
-        "motors": (35, 0),
-        "time": 400
+        "motors": (0, 40),
+        "time": 100
     },
     4: {
         "name": "right",
-        "motors": (50, 0),
-        "time": 300
+        "motors": (40, 0),
+        "time": 100
     },
     5: {
-        "name": "na",
-        "motors": (50, 0),
-        "time": 300
+        "name": "nothing_seen_turn_right",
+        "motors": (45, 0),
+        "time": 450
     }
 }
+
+
+def labelling_testing(image):
+    im_list = image.tolist()
+    # im_list = im.tolist()
+
+    horizontal_position = -1
+    # Iterate through rows (from the bottom to  the topof the image,  it should recognize closer targets)
+    for row_index in range(len(im_list) - 1, -1, -1):
+
+        # Iterate through columns (meaning that each "column index" is the index of a pixel)
+        for column_index in range(len(im_list[row_index])):
+            # Pixel cell with r g b values
+            pixel = im_list[row_index][column_index]
+            # If the pixel is green look in the same row if there are other green pixels. If so, check what is the last
+            # green pixel and save it. So, the average green pixel position on the horizontal axis is the average of these two
+            if (pixel[0] < 165 and pixel[1] > 195 and pixel[2] < 175) or (
+                    pixel[0] < 20 and pixel[1] > 150 and pixel[2] < 20):
+                last_pixel = -1
+
+                for other_pixels in range(column_index + 1, len(im_list[row_index])):
+                    other_pixel = im_list[row_index][other_pixels]
+                    if (other_pixel[0] < 165 and other_pixel[1] > 205 and other_pixel[2] < 175) or \
+                            (other_pixel[0] < 20 and other_pixel[1] > 150 and other_pixel[2] < 20):
+                        continue
+                    last_pixel = other_pixels - 1
+                    break
+
+                if last_pixel == -1:
+                    average_pixel = column_index
+
+                else:
+                    average_pixel = (last_pixel + column_index) / 2
+
+                # the horizontal position is a perccentage between 0 (far left) and 1 (far right). This will be
+                # divided in 5 slots which will be used for finding the labels of the 5 images.
+                # If no green pixel was found, than the horiizontal_axis is -1 and the label will be "no target in the image"
+                horizontal_position = average_pixel / len(im_list[row_index])
+                break
+        if horizontal_position != -1:
+            break
+
+    #     choose label for moving towards the block (which is in the picture)
+    return generate_label(horizontal_position)
+
 
 def generate_label(pixel_position):
     if pixel_position == -1:
@@ -52,6 +87,7 @@ def generate_label(pixel_position):
 def save_list_to_file(data_list, name):
     with open(name + ".pkl", "wb") as fp:
         pickle.dump(data_list, fp)
+
 
 def generate_dataset(folder="image/"):
     data = []
