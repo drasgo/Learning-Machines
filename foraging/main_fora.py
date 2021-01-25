@@ -13,7 +13,7 @@ import robobo
 from models.cnn_classifier import CNN
 from models.mlp_classifier import MLP
 from utils import retrieve_network, save_network, prepare_mlp_datasets, get_ir_signal, train_classifier_network, \
-    classifier_network_testing, prepare_dataset
+    classifier_network_testing, prepare_dataset, prep_images_datasets
 
 PRESSED = False
 device = "cpu"
@@ -28,65 +28,6 @@ def keyboard_action(key):
     global PRESSED
     if key == keyboard.Key.enter:
         PRESSED = True
-
-
-def prep_dataset_v2(data_package, labels_package, batch_size, validation, testing, transform):
-    data_package_path = datasets_folder + "/" + data_package
-    labels_package_path = datasets_folder + "/" + labels_package
-    if not os.path.exists(data_package_path) or not os.path.exists(labels_package_path):
-        _, _ = image_dataset.generate_dataset(images_folder)
-
-    with open(labels_package_path, "rb") as fp:
-        labels = pickle.load(fp)
-        assert isinstance(labels, list)
-    print("loaded labels")
-
-    with open(data_package_path, "rb") as fp:
-        data = pickle.load(fp)
-        assert isinstance(data, list)
-    print("loaded data")
-
-    train_data = data[int((validation + testing)* len(data)):]
-    train_labels = labels[int((validation + testing) * len(labels)):]
-    print("divided train data")
-
-    validation_data = data[:int(validation * len(data))]
-    validation_labels = labels[: int(validation * len(data))]
-    print("divided validation data")
-
-    testing_data = data[int(validation*len(data)): int(validation*len(data)) + int(testing * len(data))]
-    testing_labels = labels[int(validation*len(labels)): int(validation*len(labels)) + int(testing * len(labels))]
-    print("divided test data")
-
-    del labels
-    del data
-    print("removed data and labels from memory")
-
-    train_dataset = prepare_dataset(train_data, train_labels, batch_size, transform)
-    print("created train dataset, of " + str(len(train_data)) + " inputs")
-    del train_data
-    del train_labels
-    print("removed train data and train labels from memory")
-
-    if len(validation_data) > 0:
-        validation_dataset = prepare_dataset(validation_data, validation_labels, batch_size, transform)
-        print("created validation dataset, of " + str(len(validation_data)) + " inputs")
-        del validation_data
-        del validation_labels
-        print("removed validation data and validation labels from memory")
-    else:
-        validation_dataset = None
-
-    if len(testing_data) > 0:
-        test_dataset = prepare_dataset(testing_data, testing_labels, batch_size, transform)
-        print("created testing dataset, of " + str(len(testing_data)) + " inputs")
-        del testing_data
-        del testing_labels
-        print("removed test data and test labels from memory")
-    else:
-        test_dataset = None
-
-    return train_dataset, validation_dataset, test_dataset
 
 
 def save_training_results(
@@ -215,8 +156,9 @@ def main(
         testing: float=0.15,
         learning_rate: float=0.01
 ):
-    train_mlp = False
+    train_mlp = True
     train_cnn = False
+    execute = False
 
     if train_mlp is True:
         device_mlp = "cpu"
@@ -278,12 +220,16 @@ def main(
                                    network_name=cnn_model)
 
             print("creating dataset")
-            train_dataset, validation_dataset, testing_dataset = prep_dataset_v2(data_package=data_package,
-                                                                                 labels_package=labels_package,
-                                                                                 batch_size=batches,
-                                                                                 validation=validation,
-                                                                                 testing=testing,
-                                                                                 transform=transform)
+            train_dataset, validation_dataset, testing_dataset = prep_images_datasets(
+                datasets_folder=datasets_folder,
+                data_package=data_package,
+                labels_package=labels_package,
+                image_dataset=image_dataset,
+                images_folder=images_folder,
+                batch_size=batches,
+                validation_percentage=validation,
+                testing_percentage=testing,
+                transform=transform)
             training_points = len(train_dataset) * batches
             testing_points = len(testing_dataset) * batches
             validation_points = len(validation_dataset) * batches
@@ -317,47 +263,47 @@ def main(
                                   testing_points=testing_points,
                                   validation_points=validation_points)
 
+    if execute is True:
+        rob = robobo.SimulationRobobo().connect(address='127.0.0.1', port=19997)
+        rob.set_phone_tilt(26, 100)
 
-    rob = robobo.SimulationRobobo().connect(address='127.0.0.1', port=19997)
-    rob.set_phone_tilt(26, 100)
+        mlp = retrieve_network(input_nodes=5, hidden_nodes=100, output_nodes=6, Model=MLP, device=device, network_name=movement_model)
+        cnn = retrieve_network(Model=CNN, device=device, output_nodes=6, network_name=images_model)
+        result = {}
+        for count in range(5):
+            # for condition in [timer_func]:
+            for condition in [count_food, timer_func]:
+                print("Iteration n°: " + str(count))
 
-    mlp = retrieve_network(input_nodes=5, hidden_nodes=100, output_nodes=6, Model=MLP, device=device, network_name=movement_model)
-    cnn = retrieve_network(Model=CNN, device=device, output_nodes=6, network_name=images_model)
-    result = {}
-    for count in range(5):
-        # for condition in [timer_func]:
-        for condition in [count_food, timer_func]:
-            print("Iteration n°: " + str(count))
+                rob.play_simulation()
+                time.sleep(1)
+                rob.play_simulation()
+                rob.play_simulation()
+                rob.set_phone_tilt(26, 100)
 
-            rob.play_simulation()
-            time.sleep(1)
-            rob.play_simulation()
-            rob.play_simulation()
-            rob.set_phone_tilt(26, 100)
+                counter = 0
+                prev_out = -1
+                prev_model = "N/A"
+                timer = time.time()
+                delta = 0
+                print("Starting " + str(condition.__name__))
 
-            counter = 0
-            prev_out = -1
-            prev_model = "N/A"
-            timer = time.time()
-            delta = 0
-            print("Starting " + str(condition.__name__))
+                while condition(delta, 30, rob, 7) is False:
+                    counter, prev_out, prev_model = execution(rob, cnn, mlp, counter, prev_out, prev_model)
+                    delta = time.time() - timer
 
-            while condition(delta, 30, rob, 7) is False:
-                counter, prev_out, prev_model = execution(rob, cnn, mlp, counter, prev_out, prev_model)
-                delta = time.time() - timer
+                print("Finished " + str(condition.__name__) + " by collecting " +
+                      str(rob.collected_food()) + " foods in " + str(delta) + " seconds")
 
-            print("Finished " + str(condition.__name__) + " by collecting " +
-                  str(rob.collected_food()) + " foods in " + str(delta) + " seconds")
+                result[str(count) + "_" + str(condition.__name__) + "_scene1"] = {
+                    "food": rob.collected_food(),
+                    "time": delta
+                }
 
-            result[str(count) + "_" + str(condition.__name__) + "_scene1"] = {
-                "food": rob.collected_food(),
-                "time": delta
-            }
+                # Stopping the simualtion resets the environment
+                rob.pause_simulation()
+                rob.stop_world()
 
-            # Stopping the simualtion resets the environment
-            rob.pause_simulation()
-            rob.stop_world()
-
-            with open("execution_results_scene1.json", "w") as fp:
-                json.dump(result, fp)
-            print("results saved in execution_results.json")
+                with open("execution_results_scene1.json", "w") as fp:
+                    json.dump(result, fp)
+                print("results saved in execution_results.json")

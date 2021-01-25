@@ -12,6 +12,7 @@ PRESSED = False
 device = "cpu"
 # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 batches = 10
+mlp_model = "/models/movement_model.pt"
 
 
 def keyboard_action(key):
@@ -39,7 +40,7 @@ def main():
         l1.start()
         counter = 0
         prev_out = -1
-        nn = retrieve_network(input_nodes=5, output_nodes=6, Model=MLP, device=device, network_name="./movement_network.pt")
+        nn = retrieve_network(input_nodes=5, output_nodes=6, Model=MLP, device=device, network_name=mlp_model)
         rob = robobo.SimulationRobobo().connect(address='127.0.0.1', port=19997)
         while PRESSED is False:
             if PRESSED is True or rob.is_simulation_running() is False:

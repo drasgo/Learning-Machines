@@ -1,7 +1,8 @@
 from obstacle_avoidance import main_obs as obs_main
 import foraging.main_fora as for_main
+from prey_predator import main_pred as pred_main
 
-assignment = "foraging"
+assignment = "prey_predator"
 data_package = "data20.pkl"
 labels_package = "labels20.pkl"
 epochs = 10
@@ -14,8 +15,8 @@ learning_rate = 0.01
 if __name__ == "__main__":
     if assignment == "obstacle_avoidance":
         obs_main.main()
-    elif assignment == "foraging":
 
+    elif assignment == "foraging":
         for_main.main(data_package=data_package,
                       labels_package=labels_package,
                       epochs=epochs,
@@ -24,5 +25,6 @@ if __name__ == "__main__":
                       validation=validation,
                       testing=testing,
                       learning_rate=learning_rate)
+
     elif assignment == "prey_predator":
-        pass
+        pred_main.main()

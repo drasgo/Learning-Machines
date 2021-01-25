@@ -22,3 +22,5 @@ class Dataset(torch.utils.data.Dataset):
         y = int(self.labels[index])
 
         return x, y
+
+

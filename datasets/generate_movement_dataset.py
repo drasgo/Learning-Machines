@@ -99,6 +99,5 @@ def generate_dataset(dim: int=100000):
                               random.uniform(-0.45, -0.2)]
         data.append(input_data)
         labels.append(int(generate_eversive_move(input_data)))
-        # labels.append(one _hot_vectorization(generate_eversive_move(input_data), 6))
 
     return data, labels
