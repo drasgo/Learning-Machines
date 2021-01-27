@@ -9,10 +9,11 @@ from models.cnn_classifier import CNN
 from models.mlp_classifier import MLP
 from prey_predator import Prey
 from utils import retrieve_network, get_ir_signal, save_network, classifier_network_testing, train_classifier_network, \
-    prep_images_datasets
+    prep_images_datasets, prepare_mlp_datasets
 import torch
-import datasets.generate_movement_dataset as dataset
-from datasets import generate_prey_images_dataset
+import datasets.generate_prey_movement_dataset as prey_movement_dataset
+import datasets.generate_prey_images_dataset as prey_image_dataset
+from datasets.generate_prey_images_dataset import ACTIONS as images_actions
 
 
 device = "cpu"
@@ -21,69 +22,25 @@ models_folder = "./models/"
 datasets_folder = "./datasets/pickled_datasets/"
 images_folder = "./images/"
 
-mlp_movement_model = models_folder + "movement_network.pt"
+predator_movement_model = models_folder + "movement_network.pt"
+prey_movement_model = models_folder + "prey_movement_network.pt"
 images_model = models_folder + "images_network.pt"
 
 
-def check_folder_existence(folder_name):
-    try:
-        os.makedirs(folder_name)
-    except FileExistsError:
-        pass
 
-
-def retrieve_images(nn, rob):
-    counter = 0
-    prev_out = -1
-    index = 0
-    check_folder_existence("images/")
-    for _, _, images in os.walk("images/"):
-        index = len(images)
-
-    while True:
-        if rob.is_simulation_running() is False:
-            print("Error with simulation")
-            break
-
-        index += 1
-        image = rob.get_image_front()
-        cv2.imwrite("images/prey_" + str(index) + ".png", image)
-
-        # IR reading
-        ir = get_ir_signal(rob, device)
-        print("ROB Irs: {}".format(ir))
-        # Net output
-        outputs = nn(ir)
-        _, output = torch.max(outputs.data, 1)
-        output = output.item()
-        # Check if it got stuck
-
-        if output == prev_out and output != 0:
-            counter += 1
-            if counter >= 3:
-                output = 5
-
-        # Motors actuators
-        print(output)
-        left_motor = dataset.ACTIONS[output]["motors"][0]
-        right_motor = dataset.ACTIONS[output]["motors"][1]
-        time = dataset.ACTIONS[output]["time"]
-
-        if prev_out != output or (prev_out == output and output != 0):
-            rob.move(left_motor, right_motor, time)
-
-        prev_out = output
 
 
 def main(
         data_package="data48.pkl",
         labels_package="labels48.pkl",
-        batches=16,
-        validation=0.15,
-        testing=0.15,
-        epochs=10,
-        learning_rate=0.001):
-    train_cnn = True
+        batches: int=16,
+        validation: float=0.15,
+        testing: float=0.15,
+        epochs: int=10,
+        mlp_hidden_nodes: int=100,
+        learning_rate: float=0.001):
+    train_cnn = False
+    train_prey_mlp = True
     train_rnn = False
     execute = False
 
@@ -95,12 +52,12 @@ def main(
 
         cnn = retrieve_network(Model=CNN,
                                device=device,
-                               output_nodes=6,
+                               output_nodes=4,
                                network_name=images_model)
 
         train_dataset, validation_dataset, testing_dataset = prep_images_datasets(
             datasets_folder=datasets_folder,
-            image_dataset=generate_prey_images_dataset,
+            image_dataset=prey_image_dataset,
             images_folder=images_folder,
             data_package=data_package,
             labels_package=labels_package,
@@ -142,6 +99,55 @@ def main(
                               testing_points=testing_points,
                               validation_points=validation_points)
 
+    if train_prey_mlp is True:
+        mlp = retrieve_network(input_nodes=8,
+                               output_nodes=6,
+                               hidden_nodes=mlp_hidden_nodes,
+                               Model=MLP,
+                               device=device,
+                               network_name=prey_movement_model)
+
+        print("Generating MLP dataset")
+        mlp_train_loader, mlp_validation_loader, mlp_test_loader = prepare_mlp_datasets(prey_movement_dataset, batches,
+                                                                                        device)
+        training_points = len(mlp_train_loader) * batches
+        testing_points = len(mlp_test_loader) * batches
+        validation_points = len(mlp_validation_loader) * batches
+
+        print("Training MLP")
+        mlp, training_loss, validation_loss = train_classifier_network(network=mlp,
+                                                                       train_dataset=mlp_train_loader,
+                                                                       epochs=epochs,
+                                                                       device=device,
+                                                                       validation_dataset=mlp_validation_loader,
+                                                                       learning_rate=learning_rate)
+        del mlp_train_loader
+        del mlp_validation_loader
+
+        print("Testing MLP")
+        accuracy, _, _ = classifier_network_testing(network=mlp,
+                                                    test_dataset=mlp_test_loader,
+                                                    batches=batches,
+                                                    device=device)
+        print("MLP accuracy: " + str(accuracy))
+        del mlp_test_loader
+
+        print("Saving MLP")
+        save_network(mlp, prey_movement_model)
+        print("Saving MLP training results")
+        save_training_results(training_loss=training_loss,
+                              validation_loss=validation_loss,
+                              testing_accuracy=accuracy,
+                              model="PREY_MLP",
+                              batches=batches,
+                              epochs=epochs,
+                              learning_rate=learning_rate,
+                              training_points=training_points,
+                              testing_points=testing_points,
+                              validation_points=validation_points)
+
+    if train_rnn is True:
+        pass
 
     if execute is True:
         rob = robobo.SimulationRobobo().connect(address="127.0.0.1", port=19997)
@@ -151,7 +157,7 @@ def main(
         prey = Prey(prey_controller, level=2)
         prey.start()
 
-        nn = retrieve_network(input_nodes=5, hidden_nodes=100, output_nodes=6, Model=MLP, device=device, network_name=mlp_movement_model)
+        nn = retrieve_network(input_nodes=5, hidden_nodes=100, output_nodes=6, Model=MLP, device=device, network_name=predator_movement_model)
         retrieve_images(nn, rob)
 
         rob.pause_simulation()

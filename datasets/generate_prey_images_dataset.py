@@ -8,6 +8,30 @@ from tqdm import tqdm
 from utils import save_list_to_pickle_file
 
 
+ACTIONS = {
+    0: {
+        "name": "straight",
+        "motors": (50, 50),
+        "time": None
+    },
+    2: {
+        "name": "left",
+        "motors": (0, 40),
+        "time": 100
+    },
+    4: {
+        "name": "right",
+        "motors": (40, 0),
+        "time": 100
+    },
+    5: {
+        "name": "nothing_seen_turn_right",
+        "motors": (45, 0),
+        "time": 450
+    }
+}
+
+
 def generate_label(pixel_position):
     if pixel_position == -1:
         return 5

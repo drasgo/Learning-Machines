@@ -34,8 +34,8 @@ def prepare_mlp_datasets(
     train_data, train_pred = dataset.generate_dataset(train_size)
     validation_data, validation_pred = dataset.generate_dataset(int(train_size*validation_percentage))
     test_data, test_pred = dataset.generate_dataset(int(train_size*testing_percentage))
-
     train_data = torch.tensor(train_data, device=device)
+
     train_pred= torch.tensor(train_pred, device=device)
     trainloader = prepare_dataset(train_data, train_pred, batch_size)
 

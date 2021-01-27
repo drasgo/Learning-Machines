@@ -40,9 +40,10 @@ def save_training_results(
         learning_rate: float,
         training_points: int,
         testing_points: int,
-        validation_points: int
+        validation_points: int,
+        assignment_number: int=3
 ):
-    if os.path.exists("result.json"):
+    if os.path.exists("ass" + str(assignment_number) +"_"+str(model) + ".json"):
         with open("result.json", "r") as fp:
             result = json.load(fp)
     else:
